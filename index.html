@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red–Blue Policy Game</title>
+<style>
+/* Layout: one stimulus "screen" at a time, centred on a white card like a Qualtrics page; a control strip above it. */
+:root {
+  --page: #EEF1F6;      /* surround, outside the stimulus */
+  --card: #FFFFFF;      /* the stimulus itself */
+  --ink: #1B2333;
+  --sub: #5A6478;
+  --gray: #8A94A6;
+  --line: #D3DAE6;
+  --tile: #F4F6FB;
+  --red: #C8372D;
+  --red-soft: #FBE9E7;
+  --blue: #2E6FDB;
+  --blue-soft: #E3ECFB;
+  --win: #1E7F4F;
+  --font: "Inter", Arial, Helvetica, sans-serif;
+  --display: "Space Grotesk", "Inter", Arial, sans-serif;
+  color-scheme: light;
+}
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 15px; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 14px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; font-size: 13px; color: var(--sub); }
+.controls .lbl { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--card); }
+.seg button { border: 0; background: none; padding: 6px 12px; font: inherit; color: var(--ink); cursor: pointer; }
+.seg button[aria-pressed="true"].r { background: var(--red); color: #fff; }
+.seg button[aria-pressed="true"].b { background: var(--blue); color: #fff; }
+.screens { display: flex; flex-wrap: wrap; gap: 6px; }
+.screens button { border: 1px solid var(--line); background: var(--card); color: var(--sub); border-radius: 999px;
+  padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.screens button[aria-current="true"] { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding-block: 36px 32px;
+  padding-inline: clamp(16px, 4vw, 48px); display: flex; flex-direction: column; align-items: center; gap: 22px; min-height: 480px; }
+h1 { font-family: var(--display); font-size: clamp(26px, 4vw, 36px); margin: 0; text-align: center; text-wrap: balance; }
+.step { color: var(--sub); font-size: 14px; margin-top: -14px; }
+.lead { font-size: 17px; text-align: center; max-width: 60ch; line-height: 1.5; margin: 0; }
+.lead b.r { color: var(--red); } .lead b.b { color: var(--blue); }
+
+/* team badge */
+.badge { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 56px; border-radius: 10px; border: 3px solid; }
+.badge.r { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+.badge.b { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
+.badge .big { font-family: var(--display); font-size: 44px; font-weight: 700; }
+
+/* six players */
+.players { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 720px; }
+.pl { border: 2px solid; border-radius: 8px; padding: 12px 4px; text-align: center; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.pl.r { border-color: var(--red); background: var(--red-soft); }
+.pl.b { border-color: var(--blue); background: var(--blue-soft); }
+.pl .t { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.pl.r .t { color: var(--red); } .pl.b .t { color: var(--blue); }
+.pl .you { font-weight: 700; }
+.pl .pick { font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1; margin-top: 4px; color: var(--ink); }
+
+/* letter tiles */
+.letters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; width: 100%; max-width: 820px; }
+.lt { border: 2px solid var(--gray); border-radius: 8px; background: var(--card); padding: 12px 6px; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; font: inherit; color: var(--ink); }
+.lt .ch { font-family: var(--display); font-size: 40px; font-weight: 700; color: var(--gray); line-height: 1; }
+.lt .pts { font-size: 12.5px; color: var(--sub); display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.lt.pol { border-color: var(--ink); }
+.lt.pol .ch { color: var(--ink); }
+.lt .pts .r { color: var(--red); font-weight: 600; } .lt .pts .b { color: var(--blue); font-weight: 600; }
+.lt .pts .mine { text-decoration: underline; text-underline-offset: 3px; }
+button.lt { cursor: pointer; }
+button.lt:hover { background: var(--tile); }
+button.lt[aria-pressed="true"] { outline: 3px solid var(--ink); outline-offset: 2px; background: var(--tile); }
+
+/* payoff table */
+.tbl-wrap { overflow-x: auto; width: 100%; max-width: 640px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 15px; }
+th, td { padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--sub); font-weight: 600; }
+td.letter { font-family: var(--display); font-size: 24px; font-weight: 700; }
+th.r, td.r { color: var(--red); } th.b, td.b { color: var(--blue); }
+td.z { color: var(--gray); }
+
+/* history grid */
+.hist { overflow-x: auto; width: 100%; max-width: 760px; }
+.hist table td, .hist table th { border: 0; padding: 4px; }
+.hist .who { text-align: right; white-space: nowrap; font-size: 14px; padding-right: 10px; }
+.hist .who .tag { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.hist .who .tag.r { background: var(--red); } .hist .who .tag.b { background: var(--blue); }
+.cell { border: 1.5px solid var(--line); background: var(--tile); border-radius: 6px; height: 44px; min-width: 64px;
+  display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 22px; font-weight: 700; }
+.cell.empty { background: var(--card); border-style: dashed; color: var(--gray); font-size: 14px; font-weight: 400; }
+.cell.now { border-color: var(--ink); }
+.outcome { font-size: 13px; color: var(--sub); line-height: 1.35; }
+.outcome .ok { color: var(--win); font-weight: 600; }
+.note { font-size: 12px; color: var(--gray); text-align: center; }
+.nav { display: flex; gap: 10px; justify-content: center; }
+.nav button { border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; padding: 8px 18px; font: inherit; cursor: pointer; }
+.nav button.ghost { background: var(--card); color: var(--ink); }
+.nav button:disabled { opacity: .35; cursor: default; }
+
+/* intro rules, numbered like the earlier Name Game intro slide */
+.rules { list-style: none; counter-reset: r; margin: 0; padding: 0; max-width: 62ch; display: flex; flex-direction: column; gap: 12px; }
+.rules li { counter-increment: r; position: relative; padding-left: 44px; font-size: 16px; line-height: 1.45; }
+.rules li::before { content: counter(r); position: absolute; left: 0; top: -2px; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ink); color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.rules-h { margin: 4px 0 -8px; font-weight: 600; color: var(--sub); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.chip { width: 44px; height: 46px; border: 1.8px solid var(--gray); border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--gray); }
+/* participant preview: hide everything a participant would not see */
+.pv-btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.exit { display: none; position: fixed; top: 8px; right: 8px; z-index: 5; font-size: 11px; color: var(--gray); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; opacity: .6; }
+.exit:hover { opacity: 1; }
+body.pview .controls, body.pview .spec, body.pview #back, body.pview .researcher { display: none; }
+body.pview .exit { display: block; }
+.spec { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 16px 20px; font-size: 13.5px; line-height: 1.55; }
+.spec h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--sub); margin: 0 0 6px; }
+.spec ul { margin: 0; padding-left: 18px; }
+
+@media (max-width: 640px) {
+  .letters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .players { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .badge { padding: 20px 28px; }
+}
+@media (prefers-reduced-motion: no-preference) { .card { transition: opacity .15s; } }
+body.pview .exit { display: none; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap">
+</head>
+<body class="pview">
+<div class="wrap">
+  <div class="controls">
+    <span class="lbl">Participant is on</span>
+    <div class="seg" role="group" aria-label="Participant team">
+      <button id="teamR" class="r" aria-pressed="true">Red team</button>
+      <button id="teamB" class="b" aria-pressed="false">Blue team</button>
+    </div>
+    <span class="lbl">Screen</span>
+    <div class="screens" id="screens"></div>
+    <button class="pv-btn" id="pv">Preview as participant</button>
+  </div>
+  <button class="exit" id="exit">Exit preview</button>
+
+  <main class="card" id="card" aria-live="polite"></main>
+
+  <div class="nav">
+    <button class="ghost" id="back">Back</button>
+    <button id="next">Next</button>
+  </div>
+
+</div>
+
+<script>
+const LETTERS = ["P", "Q", "R", "S", "T", "J", "M", "N", "X", "Y"];
+const PAY = { P: { r: 6, b: 12 }, Q: { r: 7, b: 7 }, R: { r: 12, b: 5 }, S: { r: 15, b: 2 }, T: { r: 5, b: 18 } };
+const PAYING = LETTERS.filter(ch => PAY[ch]);
+const ZERO = LETTERS.filter(ch => !PAY[ch]);
+const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 Blue
+const TEAMNAME = { r: "Red", b: "Blue" };
+// Example choices of the five other players, per round (index = player 0..5; the participant's slot is filled from their pick)
+const EXAMPLE = [
+  ["P", "P", "P", "Q", "Q", "Q"],
+  ["P", "P", "P", "P", "Q", "Q"],
+  ["P", "P", "P", "P", "P", "Q"],
+  ["P", "P", "P", "P", "P", "P"],
+  ["P", "P", "P", "P", "P", "P"],
+  ["P", "P", "P", "P", "P", "P"],
+];
+const ROUNDS = EXAMPLE.length;
+
+// Team comes from the link: index.html?team=red or ?team=blue. Without it, Red or Blue is assigned at random (4:2, matching team sizes).
+const _q = new URLSearchParams(location.search).get("team");
+let team = _q === "blue" || _q === "b" ? "b" : _q === "red" || _q === "r" ? "r" : (Math.random() < 4/6 ? "r" : "b");
+let screen = 0;
+let picks = Array(ROUNDS).fill(null);
+
+const youIdx = () => (team === "r" ? 0 : 4);
+
+function screensList() {
+  const s = [
+    { id: "intro", label: "How it works" },
+    { id: "team", label: "Team" },
+    { id: "players", label: "Players" },
+    { id: "values", label: "Letter values" },
+  ];
+  for (let r = 0; r < ROUNDS; r++) {
+    s.push({ id: "choose", round: r, label: `Round ${r + 1}: choose` });
+    s.push({ id: "result", round: r, label: `Round ${r + 1}: result` });
+  }
+  s.push({ id: "end", label: "End" });
+  return s;
+}
+const SCREENS = screensList();
+
+function pts(ch, t) { return PAY[ch] ? PAY[ch][t] : 0; }
+
+function tile(ch, opts = {}) {
+  const pol = !!PAY[ch];
+  const tag = opts.button ? "button" : "div";
+  const pressed = opts.button ? ` aria-pressed="${opts.selected ? "true" : "false"}" data-ch="${ch}"` : "";
+  const ptsHtml = pol
+    ? `<span class="r ${team === "r" ? "mine" : ""}">Red +${PAY[ch].r}</span><span class="b ${team === "b" ? "mine" : ""}">Blue +${PAY[ch].b}</span>`
+    : `<span>0 points</span>`;
+  return `<${tag} class="lt ${pol ? "pol" : ""}"${pressed}><span class="ch">${ch}</span><span class="pts">${ptsHtml}</span></${tag}>`;
+}
+
+function players(choices) {
+  return `<div class="players">${TEAMS.map((t, i) => `
+    <div class="pl ${t}"><span class="t">${TEAMNAME[t]}</span><span>Player ${i + 1}</span>
+    ${i === youIdx() ? '<span class="you">You</span>' : "<span>&nbsp;</span>"}
+    ${choices ? `<span class="pick">${choices[i]}</span>` : ""}</div>`).join("")}</div>`;
+}
+
+function roundChoices(r) {
+  const row = EXAMPLE[r].slice();
+  row[youIdx()] = picks[r] || row[youIdx()];
+  return row;
+}
+
+function outcomeFor(r) {
+  const row = roundChoices(r);
+  const all = row.every(c => c === row[0]);
+  if (!all) return `<span>No match</span><br>0 points`;
+  const ch = row[0];
+  if (!PAY[ch]) return `<span class="ok">All matched ${ch}</span><br>0 points`;
+  return `<span class="ok">All matched ${ch}</span><br>Red +${PAY[ch].r} · Blue +${PAY[ch].b}`;
+}
+
+function history(upto, highlight) {
+  let h = `<div class="hist"><table><thead><tr><th></th>`;
+  for (let r = 0; r < ROUNDS; r++) h += `<th>Round ${r + 1}</th>`;
+  h += `</tr></thead><tbody>`;
+  TEAMS.forEach((t, i) => {
+    h += `<tr><td class="who"><span class="tag ${t}"></span>Player ${i + 1}${i === youIdx() ? " (You)" : ""}</td>`;
+    for (let r = 0; r < ROUNDS; r++) {
+      if (r <= upto) h += `<td><div class="cell ${r === highlight ? "now" : ""}">${roundChoices(r)[i]}</div></td>`;
+      else h += `<td><div class="cell empty">–</div></td>`;
+    }
+    h += `</tr>`;
+  });
+  h += `<tr><td class="who">Result</td>`;
+  for (let r = 0; r < ROUNDS; r++) h += `<td class="outcome">${r <= upto ? outcomeFor(r) : ""}</td>`;
+  h += `</tr></tbody></table></div>`;
+  return h;
+}
+
+function myTotal(upto) {
+  let s = 0;
+  for (let r = 0; r <= upto; r++) {
+    const row = roundChoices(r);
+    if (row.every(c => c === row[0])) s += pts(row[0], team);
+  }
+  return s;
+}
+
+function render() {
+  const s = SCREENS[screen];
+  const T = TEAMNAME[team];
+  const card = document.getElementById("card");
+  let html = "";
+  if (s.id === "intro") {
+    html = `<h1>How the Game Works</h1>
+      <p class="lead">You are playing a coordination game with 5 other players (6 players total, including you). The game lasts <b>${ROUNDS} rounds</b>.</p>
+      <ol class="rules">
+        <li>There is no communication between players.</li>
+        <li>Each round, all 6 players choose one letter at the same time.</li>
+        <li>All 6 players must choose the <b>same</b> letter to earn points. If even one player chooses differently, everyone gets 0 points for that round.</li>
+        <li>After each round, you will see whether all 6 players matched, the letter each player chose, the points earned that round, and your total points.</li>
+      </ol>
+      <p class="rules-h">The letters you can choose:</p>
+      <div class="chips">${LETTERS.map(ch => `<span class="chip">${ch}</span>`).join("")}</div>`;
+  } else if (s.id === "team") {
+    html = `<h1>Your Team</h1>
+      <div class="badge ${team}"><span>You are on the</span><span class="big">${T} Team</span></div>`;
+  } else if (s.id === "players") {
+    html = `<h1>The Players</h1>
+      <p class="lead">There are <b class="r">4 Red</b> players and <b class="b">2 Blue</b> players.</p>
+      ${players()}`;
+  } else if (s.id === "values") {
+    html = `<h1>What Each Letter Is Worth</h1>
+      <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, the points are divided the way that letter says.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Letter</th><th class="r">Each Red player gets</th><th class="b">Each Blue player gets</th></tr></thead>
+        <tbody>
+          ${PAYING.map(ch => `<tr><td class="letter">${ch}</td><td class="r">${PAY[ch].r} points</td><td class="b">${PAY[ch].b} points</td></tr>`).join("")}
+          <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td></tr>
+        </tbody></table></div>
+      <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
+  } else if (s.id === "choose") {
+    const r = s.round;
+    html = `<h1>Round ${r + 1} of ${ROUNDS}</h1>
+      <p class="lead">Pick a letter. Each letter is a different division of points between the teams, and it is paid only if all six players pick it.<br>
+      You are <b class="${team}">Player ${youIdx() + 1}, ${T} Team</b>.</p>
+      ${players()}
+      ${r > 0 ? history(r - 1, -1) : ""}
+      <div class="letters" id="letters">${LETTERS.map(ch => tile(ch, { button: true, selected: picks[r] === ch })).join("")}</div>
+      <p class="note">${picks[r] ? `You picked ${picks[r]}. Press Next to submit.` : "Click a letter to choose it."}</p>`;
+  } else if (s.id === "result") {
+    const r = s.round;
+    html = `<h1>Round ${r + 1} Results</h1>
+      <p class="lead">What each player chose. Your total so far: <b>${myTotal(r)} points</b>.</p>
+      ${players(roundChoices(r))}
+      ${history(r, r)}
+      <p class="note researcher">Other players' choices are example data for this mockup.</p>`;
+  } else if (s.id === "end") {
+    html = `<h1>Game Over</h1>
+      <p class="lead">You earned <b>${myTotal(ROUNDS - 1)} points</b> as a member of the <b class="${team}">${T} Team</b>.</p>
+      ${history(ROUNDS - 1, -1)}`;
+  }
+  card.innerHTML = html;
+
+  document.querySelectorAll("#letters .lt").forEach(b => b.addEventListener("click", () => {
+    picks[s.round] = b.dataset.ch; render();
+  }));
+  document.getElementById("screens").innerHTML = SCREENS.map((x, i) =>
+    `<button data-i="${i}" aria-current="${i === screen}">${x.label}</button>`).join("");
+  document.querySelectorAll("#screens button").forEach(b => b.addEventListener("click", () => { screen = +b.dataset.i; render(); }));
+  document.getElementById("back").disabled = screen === 0;
+  const pview = document.body.classList.contains("pview");
+  document.getElementById("next").disabled = screen === SCREENS.length - 1 || (pview && s.id === "choose" && !picks[s.round]);
+  document.getElementById("next").textContent = pview && s.id === "choose" ? "Submit" : "Next";
+}
+
+function setPreview(on) {
+  document.body.classList.toggle("pview", on);
+  screen = 0; picks = Array(ROUNDS).fill(null);
+  render(); window.scrollTo(0, 0);
+}
+document.getElementById("pv").onclick = () => setPreview(true);
+document.getElementById("exit").onclick = () => setPreview(false);
+
+function setTeam(t) {
+  team = t;
+  document.getElementById("teamR").setAttribute("aria-pressed", t === "r");
+  document.getElementById("teamB").setAttribute("aria-pressed", t === "b");
+  render();
+}
+document.getElementById("teamR").onclick = () => setTeam("r");
+document.getElementById("teamB").onclick = () => setTeam("b");
+document.getElementById("back").onclick = () => { if (screen > 0) { screen--; render(); } };
+document.getElementById("next").onclick = () => { if (screen < SCREENS.length - 1) { screen++; render(); } };
+render();
+</script>
+</body>
+</html>
