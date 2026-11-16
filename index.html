@@ -113,6 +113,8 @@ td.z { color: var(--gray); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .chip { width: 44px; height: 46px; border: 1.8px solid var(--gray); border-radius: 6px; display: flex; align-items: center; justify-content: center;
   font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--gray); }
+td.theory { font-size: 13px; text-align: left; color: var(--ink); background: #FFF8E1; }
+th.researcher { background: #FFF8E1; }
 /* participant preview: hide everything a participant would not see */
 .pv-btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
 .exit { display: none; position: fixed; top: 8px; right: 8px; z-index: 5; font-size: 11px; color: var(--gray); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; opacity: .6; }
@@ -159,6 +161,7 @@ body.pview .exit { display: none; }
 <script>
 const LETTERS = ["P", "Q", "R", "S", "T", "J", "M", "N", "X", "Y"];
 const PAY = { P: { r: 6, b: 12 }, Q: { r: 7, b: 7 }, R: { r: 12, b: 5 }, S: { r: 15, b: 2 }, T: { r: 5, b: 18 } };
+const THEORY = { P: "Equality (equal team totals, 24/24)", Q: "Proportionality (equal per player; team totals 28/14)", R: "Nash bargaining, player-level (max r⁴b²)", S: "Utilitarian (max group total, 64)", T: "Nash bargaining, team-level (max r × b)" }; // RESEARCHER-ONLY
 const PAYING = LETTERS.filter(ch => PAY[ch]);
 const ZERO = LETTERS.filter(ch => !PAY[ch]);
 const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 Blue
@@ -286,10 +289,10 @@ function render() {
     html = `<h1>What Each Letter Is Worth</h1>
       <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, the points are divided the way that letter says.</p>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Letter</th><th class="r">Each Red player gets</th><th class="b">Each Blue player gets</th></tr></thead>
+        <thead><tr><th>Letter</th><th class="r">Each Red player gets</th><th class="b">Each Blue player gets</th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
         <tbody>
-          ${PAYING.map(ch => `<tr><td class="letter">${ch}</td><td class="r">${PAY[ch].r} points</td><td class="b">${PAY[ch].b} points</td></tr>`).join("")}
-          <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td></tr>
+          ${PAYING.map(ch => `<tr><td class="letter">${ch}</td><td class="r">${PAY[ch].r} points</td><td class="b">${PAY[ch].b} points</td>${THEORY ? `<td class="researcher theory">${THEORY[ch]}</td>` : ""}</tr>`).join("")}
+          <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td>${THEORY ? '<td class="researcher theory z">none (0 for all)</td>' : ""}</tr>
         </tbody></table></div>
       <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
   } else if (s.id === "choose") {
