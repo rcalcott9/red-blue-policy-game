@@ -162,8 +162,24 @@ body.pview .exit { display: none; }
 const LETTERS = ["P", "Q", "R", "S", "J", "M", "N", "T", "X", "Y"];
 const PAY = { P: { r: 8, b: 4 }, Q: { r: 5, b: 5 }, R: { r: 15, b: 1 }, S: { r: 11, b: 3 } };
 const THEORY = null;
-const PAYING = LETTERS.filter(ch => PAY[ch]);
-const ZERO = LETTERS.filter(ch => !PAY[ch]);
+// Where each letter (and so each policy) appears on screen is shuffled once per participant, then kept fixed
+// for the whole game (kept across reloads in the same tab). Reproduce an order with ?order=<number>.
+const ORDER_SEED = (() => {
+  let s = new URLSearchParams(location.search).get("order");
+  try { s = s || sessionStorage.getItem("rb_order"); } catch (e) {}
+  if (!s || !/^\d+$/.test(s)) s = String(1 + Math.floor(Math.random() * 1e9));
+  try { sessionStorage.setItem("rb_order", s); } catch (e) {}
+  return s;
+})();
+const ORDER = (() => {
+  let x = (Number(ORDER_SEED) >>> 0) || 1;
+  const rnd = () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296;
+  const a = LETTERS.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+})();
+const PAYING = ORDER.filter(ch => PAY[ch]);
+const ZERO = ORDER.filter(ch => !PAY[ch]);
 const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 Blue
 const TEAMNAME = { r: "Red", b: "Blue" };
 // Example choices of the five other players, per round (index = player 0..5; the participant's slot is filled from their pick)
@@ -277,7 +293,7 @@ function render() {
         <li>After each round, you will see whether all 6 players matched, the letter each player chose, the points earned that round, and your total points.</li>
       </ol>
       <p class="rules-h">The letters you can choose:</p>
-      <div class="chips">${LETTERS.map(ch => `<span class="chip">${ch}</span>`).join("")}</div>`;
+      <div class="chips">${ORDER.map(ch => `<span class="chip">${ch}</span>`).join("")}</div>`;
   } else if (s.id === "team") {
     html = `<h1>Your Team</h1>
       <div class="badge ${team}"><span>You are on the</span><span class="big">${T} Team</span></div>`;
@@ -302,7 +318,7 @@ function render() {
       You are <b class="${team}">Player ${youIdx() + 1}, ${T} Team</b>.</p>
       ${players()}
       ${r > 0 ? history(r - 1, -1) : ""}
-      <div class="letters" id="letters">${LETTERS.map(ch => tile(ch, { button: true, selected: picks[r] === ch })).join("")}</div>
+      <div class="letters" id="letters">${ORDER.map(ch => tile(ch, { button: true, selected: picks[r] === ch })).join("")}</div>
       <p class="note">${picks[r] ? `You picked ${picks[r]}. Press Next to submit.` : "Click a letter to choose it."}</p>`;
   } else if (s.id === "result") {
     const r = s.round;
@@ -329,6 +345,9 @@ function render() {
   document.getElementById("next").disabled = screen === SCREENS.length - 1 || (pview && s.id === "choose" && !picks[s.round]);
   document.getElementById("next").textContent = pview && s.id === "choose" ? "Submit" : "Next";
 }
+
+const _oi = document.getElementById("orderinfo");
+if (_oi) _oi.textContent = ORDER.join(" ") + " (seed " + ORDER_SEED + ")";
 
 function setPreview(on) {
   document.body.classList.toggle("pview", on);
