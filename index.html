@@ -115,6 +115,7 @@ td.z { color: var(--gray); }
   font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--gray); }
 td.theory { font-size: 13px; text-align: left; color: var(--ink); background: #FFF8E1; }
 th.researcher { background: #FFF8E1; }
+.thsub { font-size: 10.5px; font-weight: 400; text-transform: none; letter-spacing: 0; }
 /* participant preview: hide everything a participant would not see */
 .pv-btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
 .exit { display: none; position: fixed; top: 8px; right: 8px; z-index: 5; font-size: 11px; color: var(--gray); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; opacity: .6; }
@@ -180,6 +181,9 @@ const ORDER = (() => {
 })();
 const PAYING = ORDER.filter(ch => PAY[ch]);
 const ZERO = ORDER.filter(ch => !PAY[ch]);
+// Participants see TEAM totals (per-player amount × team size), split equally among that team's players.
+const NTEAM = { r: 4, b: 2 };
+const teamPts = (ch, t) => (PAY[ch] ? NTEAM[t] * PAY[ch][t] : 0);
 const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 Blue
 const TEAMNAME = { r: "Red", b: "Blue" };
 // Example choices of the five other players, per round (index = player 0..5; the participant's slot is filled from their pick)
@@ -224,7 +228,7 @@ function tile(ch, opts = {}) {
   const tag = opts.button ? "button" : "div";
   const pressed = opts.button ? ` aria-pressed="${opts.selected ? "true" : "false"}" data-ch="${ch}"` : "";
   const ptsHtml = pol
-    ? `<span class="r ${team === "r" ? "mine" : ""}">Red +${PAY[ch].r}</span><span class="b ${team === "b" ? "mine" : ""}">Blue +${PAY[ch].b}</span>`
+    ? `<span class="r ${team === "r" ? "mine" : ""}">Red Team ${teamPts(ch, "r")}</span><span class="b ${team === "b" ? "mine" : ""}">Blue Team ${teamPts(ch, "b")}</span>`
     : `<span>0 points</span>`;
   return `<${tag} class="lt ${pol ? "pol" : ""}"${pressed}><span class="ch">${ch}</span><span class="pts">${ptsHtml}</span></${tag}>`;
 }
@@ -248,7 +252,7 @@ function outcomeFor(r) {
   if (!all) return `<span>No match</span><br>0 points`;
   const ch = row[0];
   if (!PAY[ch]) return `<span class="ok">All matched ${ch}</span><br>0 points`;
-  return `<span class="ok">All matched ${ch}</span><br>Red +${PAY[ch].r} · Blue +${PAY[ch].b}`;
+  return `<span class="ok">All matched ${ch}</span><br>Red Team ${teamPts(ch, "r")} · Blue Team ${teamPts(ch, "b")}`;
 }
 
 function history(upto, highlight) {
@@ -303,18 +307,19 @@ function render() {
       ${players()}`;
   } else if (s.id === "values") {
     html = `<h1>What Each Letter Is Worth</h1>
-      <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, the points are divided the way that letter says.</p>
+      <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, each team gets the points that letter says.</p>
+      <p class="lead">Each team's points are <b>split equally among its players</b>: the Red Team's points are shared by its 4 players, and the Blue Team's points by its 2 players.</p>
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Letter</th><th class="r">Each Red player gets</th><th class="b">Each Blue player gets</th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
+        <thead><tr><th>Letter</th><th class="r">Red Team gets<br><span class="thsub">split among 4 players</span></th><th class="b">Blue Team gets<br><span class="thsub">split among 2 players</span></th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
         <tbody>
-          ${PAYING.map(ch => `<tr><td class="letter">${ch}</td><td class="r">${PAY[ch].r} points</td><td class="b">${PAY[ch].b} points</td>${THEORY ? `<td class="researcher theory">${THEORY[ch]}</td>` : ""}</tr>`).join("")}
+          ${PAYING.map(ch => `<tr><td class="letter">${ch}</td><td class="r">${teamPts(ch, "r")} points</td><td class="b">${teamPts(ch, "b")} points</td>${THEORY ? `<td class="researcher theory">${THEORY[ch]}</td>` : ""}</tr>`).join("")}
           <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td>${THEORY ? '<td class="researcher theory z">none (0 for all)</td>' : ""}</tr>
         </tbody></table></div>
       <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
   } else if (s.id === "choose") {
     const r = s.round;
     html = `<h1>Round ${r + 1} of ${ROUNDS}</h1>
-      <p class="lead">Pick a letter. Each letter is a different division of points between the teams, and it is paid only if all six players pick it.<br>
+      <p class="lead">Pick a letter. Each letter is a different division of points between the teams, and it is paid only if all six players pick it. Each team's points are split equally among its players.<br>
       You are <b class="${team}">Player ${youIdx() + 1}, ${T} Team</b>.</p>
       ${players()}
       ${r > 0 ? history(r - 1, -1) : ""}
@@ -323,13 +328,13 @@ function render() {
   } else if (s.id === "result") {
     const r = s.round;
     html = `<h1>Round ${r + 1} Results</h1>
-      <p class="lead">What each player chose. Your total so far: <b>${myTotal(r)} points</b>.</p>
+      <p class="lead">What each player chose. Your share so far: <b>${myTotal(r)} points</b>.</p>
       ${players(roundChoices(r))}
       ${history(r, r)}
       <p class="note researcher">Other players' choices are example data for this mockup.</p>`;
   } else if (s.id === "end") {
     html = `<h1>Game Over</h1>
-      <p class="lead">You earned <b>${myTotal(ROUNDS - 1)} points</b> as a member of the <b class="${team}">${T} Team</b>.</p>
+      <p class="lead">Your share: <b>${myTotal(ROUNDS - 1)} points</b> as a member of the <b class="${team}">${T} Team</b>.</p>
       ${history(ROUNDS - 1, -1)}`;
   }
   card.innerHTML = html;
