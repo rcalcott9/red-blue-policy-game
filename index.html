@@ -187,9 +187,9 @@ const NEW = "K", NEW_ROUND = 6;
 const orderAt = r => (r >= NEW_ROUND ? ORDER : ORDER.filter(ch => ch !== NEW));
 const payingAt = r => orderAt(r).filter(ch => PAY[ch]);
 const ZERO = ORDER.filter(ch => !PAY[ch]);
-// Participants see TEAM totals (per-player amount × team size), split equally among that team's players.
+// Participants see points PER PLAYER (each Red player / each Blue player).
 const NTEAM = { r: 4, b: 2 };
-const teamPts = (ch, t) => (PAY[ch] ? NTEAM[t] * PAY[ch][t] : 0);
+const teamPts = (ch, t) => (PAY[ch] ? PAY[ch][t] : 0);   // per player (name kept)
 const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 Blue
 const TEAMNAME = { r: "Red", b: "Blue" };
 // Example choices of the five other players, per round (index = player 0..5; the participant's slot is filled from their pick)
@@ -241,7 +241,7 @@ function tile(ch, opts = {}) {
   const tag = opts.button ? "button" : "div";
   const pressed = opts.button ? ` aria-pressed="${opts.selected ? "true" : "false"}" data-ch="${ch}"` : "";
   const ptsHtml = pol
-    ? `<span class="r ${team === "r" ? "mine" : ""}">Red Team ${teamPts(ch, "r")}</span><span class="b ${team === "b" ? "mine" : ""}">Blue Team ${teamPts(ch, "b")}</span>`
+    ? `<span class="r ${team === "r" ? "mine" : ""}">Each Red ${teamPts(ch, "r")}</span><span class="b ${team === "b" ? "mine" : ""}">Each Blue ${teamPts(ch, "b")}</span>`
     : `<span>0 points</span>`;
   return `<${tag} class="lt ${pol ? "pol" : ""}"${pressed}><span class="ch">${ch}</span><span class="pts">${ptsHtml}</span></${tag}>`;
 }
@@ -265,7 +265,7 @@ function outcomeFor(r) {
   if (!all) return `<span>No match</span><br>0 points`;
   const ch = row[0];
   if (!PAY[ch]) return `<span class="ok">All matched ${ch}</span><br>0 points`;
-  return `<span class="ok">All matched ${ch}</span><br>Red Team ${teamPts(ch, "r")} · Blue Team ${teamPts(ch, "b")}`;
+  return `<span class="ok">All matched ${ch}</span><br>Each Red ${teamPts(ch, "r")} · Each Blue ${teamPts(ch, "b")}`;
 }
 
 function history(upto, highlight) {
@@ -288,7 +288,7 @@ function history(upto, highlight) {
 
 function valuesTable(r) {
   return `<div class="tbl-wrap"><table>
-    <thead><tr><th>Letter</th><th class="r">Red Team gets<br><span class="thsub">split among 4 players</span></th><th class="b">Blue Team gets<br><span class="thsub">split among 2 players</span></th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
+    <thead><tr><th>Letter</th><th class="r">Each Red player gets</th><th class="b">Each Blue player gets</th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
     <tbody>
       ${payingAt(r).map(ch => `<tr${r >= NEW_ROUND && ch === NEW ? ' class="new"' : ""}><td class="letter">${ch}${r >= NEW_ROUND && ch === NEW ? ' <span class="newtag">new</span>' : ""}</td><td class="r">${teamPts(ch, "r")} points</td><td class="b">${teamPts(ch, "b")} points</td>${THEORY ? `<td class="researcher theory">${THEORY[ch]}</td>` : ""}</tr>`).join("")}
       <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td>${THEORY ? '<td class="researcher theory z">none (0 for all)</td>' : ""}</tr>
@@ -329,8 +329,7 @@ function render() {
       ${players()}`;
   } else if (s.id === "values") {
     html = `<h1>What Each Letter Is Worth</h1>
-      <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, each team gets the points that letter says.</p>
-      <p class="lead">Each team's points are <b>split equally among its players</b>: the Red Team's points are shared by its 4 players, and the Blue Team's points by its 2 players.</p>
+      <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, every player gets the points that letter gives to their team: one amount for each Red player, another for each Blue player.</p>
       ${valuesTable(0)}
       <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
   } else if (s.id === "newletter") {
@@ -341,7 +340,7 @@ function render() {
   } else if (s.id === "choose") {
     const r = s.round;
     html = `<h1>Round ${r + 1} of ${ROUNDS}</h1>
-      <p class="lead">Pick a letter. Each letter is a different division of points between the teams, and it is paid only if all six players pick it. Each team's points are split equally among its players.<br>
+      <p class="lead">Pick a letter. Each letter is a different division of points between the teams, and it is paid only if all six players pick it.<br>
       You are <b class="${team}">Player ${youIdx() + 1}, ${T} Team</b>.</p>
       ${players()}
       ${r > 0 ? history(r - 1, -1) : ""}
@@ -350,13 +349,13 @@ function render() {
   } else if (s.id === "result") {
     const r = s.round;
     html = `<h1>Round ${r + 1} Results</h1>
-      <p class="lead">What each player chose. Your share so far: <b>${myTotal(r)} points</b>.</p>
+      <p class="lead">What each player chose. Your points so far: <b>${myTotal(r)} points</b>.</p>
       ${players(roundChoices(r))}
       ${history(r, r)}
       <p class="note researcher">Other players' choices are example data for this mockup.</p>`;
   } else if (s.id === "end") {
     html = `<h1>Game Over</h1>
-      <p class="lead">Your share: <b>${myTotal(ROUNDS - 1)} points</b> as a member of the <b class="${team}">${T} Team</b>.</p>
+      <p class="lead">Your points: <b>${myTotal(ROUNDS - 1)} points</b> as a member of the <b class="${team}">${T} Team</b>.</p>
       ${history(ROUNDS - 1, -1)}`;
   }
   card.innerHTML = html;
