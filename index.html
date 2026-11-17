@@ -190,7 +190,7 @@ const ORDER = (() => {
   return a.filter(ch => PAY[ch]).concat(a.filter(ch => !PAY[ch]));
 })();
 // The new letter K only exists from round NEW_ROUND (0-based) on; before that it is hidden everywhere.
-const NEW = "K", NEW_ROUND = 6;
+const NEW = "K", NEW_ROUND = 5;
 const orderAt = r => (r >= NEW_ROUND ? ORDER : ORDER.filter(ch => ch !== NEW));
 const payingAt = r => orderAt(r).filter(ch => PAY[ch]);
 const ZERO = ORDER.filter(ch => !PAY[ch]);
@@ -206,9 +206,9 @@ const EXAMPLE = [
   ["Q", "Q", "Q", "Q", "R", "Q"],
   ["Q", "Q", "Q", "Q", "Q", "Q"],
   ["Q", "Q", "Q", "Q", "Q", "Q"],
-  ["Q", "Q", "Q", "Q", "Q", "Q"],
   ["Q", "K", "Q", "K", "K", "K"],
   ["K", "K", "K", "Q", "K", "K"],
+  ["K", "K", "K", "K", "K", "K"],
   ["K", "K", "K", "K", "K", "K"],
   ["K", "K", "K", "K", "K", "K"],
   ["K", "K", "K", "K", "K", "K"],
