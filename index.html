@@ -227,7 +227,7 @@ const _q = new URLSearchParams(location.search).get("team");
 let team = _q === "blue" || _q === "b" ? "b" : _q === "red" || _q === "r" ? "r" : (Math.random() < 4/6 ? "r" : "b");
 let screen = 0;
 let picks = Array(ROUNDS).fill(null);
-// Comprehension check (same three questions as the earlier Name Game study, plus two about letter values).
+// Comprehension check (same three questions as the earlier Name Game study).
 // Participants must answer all correctly to start; first-attempt answers are kept in quizFirst.
 let quizAns = {}, quizChecked = false, quizFirst = null;
 
@@ -314,11 +314,7 @@ function valuesTable(r) {
     </tbody></table></div>`;
 }
 
-const uniq = a => a.filter((x, i) => a.indexOf(x) === i);
 function quizQs() {
-  const other = team === "r" ? "b" : "r";
-  const [L, L2] = payingAt(0);
-  const num = (a) => uniq(a).slice(0, 4).sort((x, y) => x - y).map(String);
   return [
     { id: "q1", q: "Players earn points when:", a: "All players choose the same letter",
       opts: ["Most players choose the same letter", "All players choose the same letter", "At least one other player chooses the same letter as you", "Any player chooses a letter that is worth points"],
@@ -329,12 +325,6 @@ function quizQs() {
     { id: "q3", q: "In the game, there are:", a: "6 players who each choose one letter",
       opts: ["6 players who each choose one letter", "6 players, and each team chooses one letter together", "2 players who each choose one letter", "4 players who each choose one letter"],
       why: "There are 6 players (4 Red, 2 Blue), and each one chooses a letter." },
-    { id: "q4", q: `If all 6 players choose ${L}, how many points do <b>you</b> get?`, a: String(pts(L, team)),
-      opts: num([pts(L, team), pts(L, other), 0, pts(L, team) * NTEAM[team], pts(L, team) + pts(L, other)]),
-      why: `Under ${L}, each ${TEAMNAME[team]} player gets ${pts(L, team)} points.` },
-    { id: "q5", q: `If 5 players choose ${L} and 1 player chooses ${L2}, how many points do <b>you</b> get?`, a: "0",
-      opts: num([0, pts(L, team), pts(L2, team), pts(L, team) + pts(L2, team)]),
-      why: "If even one player chooses differently, everyone gets 0 points." },
   ];
 }
 const quizOK = () => quizQs().every(x => quizAns[x.id] === x.a);
