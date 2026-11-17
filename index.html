@@ -169,8 +169,8 @@ body.pview .exit { display: none; }
 </div>
 
 <script>
-const LETTERS = ["P", "Q", "R", "S", "J", "M", "N", "T", "X", "Y", "K"];
-const PAY = { Q: { r: 8, b: 4 }, R: { r: 4, b: 8 }, S: { r: 12, b: 1 }, T: { r: 6, b: 6 }, K: { r: 10, b: 10 } };
+const LETTERS = ["P", "Q", "R", "S", "J", "M", "N", "X", "Y", "K"];
+const PAY = { Q: { r: 8, b: 4 }, R: { r: 4, b: 8 }, S: { r: 12, b: 1 }, K: { r: 10, b: 10 } };
 const THEORY = null;
 // Where each letter (and so each policy) appears on screen is shuffled once per participant, then kept fixed
 // for the whole game (kept across reloads in the same tab). Reproduce an order with ?order=<number>.
@@ -201,9 +201,9 @@ const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 B
 const TEAMNAME = { r: "Red", b: "Blue" };
 // Example choices of the five other players, per round (index = player 0..5; the participant's slot is filled from their pick)
 const EXAMPLE = [
-  ["Q", "Q", "S", "T", "R", "T"],
-  ["Q", "Q", "Q", "T", "T", "T"],
-  ["Q", "Q", "Q", "Q", "T", "Q"],
+  ["Q", "Q", "S", "Q", "R", "R"],
+  ["Q", "Q", "Q", "Q", "R", "R"],
+  ["Q", "Q", "Q", "Q", "R", "Q"],
   ["Q", "Q", "Q", "Q", "Q", "Q"],
   ["Q", "Q", "Q", "Q", "Q", "Q"],
   ["Q", "Q", "Q", "Q", "Q", "Q"],
