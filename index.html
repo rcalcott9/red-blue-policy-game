@@ -115,6 +115,8 @@ td.z { color: var(--gray); }
   font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--gray); }
 td.theory { font-size: 13px; text-align: left; color: var(--ink); background: #FFF8E1; }
 th.researcher { background: #FFF8E1; }
+tr.new td { background: var(--tile); }
+.newtag { font-size: 11px; font-weight: 600; border: 1px solid var(--ink); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: middle; }
 .thsub { font-size: 10.5px; font-weight: 400; text-transform: none; letter-spacing: 0; }
 /* participant preview: hide everything a participant would not see */
 .pv-btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
@@ -160,8 +162,8 @@ body.pview .exit { display: none; }
 </div>
 
 <script>
-const LETTERS = ["P", "Q", "R", "S", "J", "M", "N", "T", "X", "Y"];
-const PAY = { P: { r: 7.5, b: 15 }, Q: { r: 11, b: 11 }, R: { r: 1.5, b: 34 }, S: { r: 12, b: 10 }, T: { r: 16, b: 2 } };
+const LETTERS = ["P", "Q", "R", "S", "J", "M", "N", "T", "X", "Y", "K"];
+const PAY = { Q: { r: 8, b: 4 }, R: { r: 4, b: 8 }, S: { r: 12, b: 1 }, T: { r: 6, b: 6 }, K: { r: 10, b: 10 } };
 const THEORY = null;
 // Where each letter (and so each policy) appears on screen is shuffled once per participant, then kept fixed
 // for the whole game (kept across reloads in the same tab). Reproduce an order with ?order=<number>.
@@ -180,7 +182,10 @@ const ORDER = (() => {
   // paying letters (the policies) first, so they share the top row; each group stays in shuffled order
   return a.filter(ch => PAY[ch]).concat(a.filter(ch => !PAY[ch]));
 })();
-const PAYING = ORDER.filter(ch => PAY[ch]);
+// The new letter K only exists from round NEW_ROUND (0-based) on; before that it is hidden everywhere.
+const NEW = "K", NEW_ROUND = 6;
+const orderAt = r => (r >= NEW_ROUND ? ORDER : ORDER.filter(ch => ch !== NEW));
+const payingAt = r => orderAt(r).filter(ch => PAY[ch]);
 const ZERO = ORDER.filter(ch => !PAY[ch]);
 // Participants see TEAM totals (per-player amount × team size), split equally among that team's players.
 const NTEAM = { r: 4, b: 2 };
@@ -189,12 +194,18 @@ const TEAMS = ["r", "r", "r", "r", "b", "b"];          // Players 1-4 Red, 5-6 B
 const TEAMNAME = { r: "Red", b: "Blue" };
 // Example choices of the five other players, per round (index = player 0..5; the participant's slot is filled from their pick)
 const EXAMPLE = [
-  ["P", "P", "P", "Q", "Q", "Q"],
-  ["P", "P", "P", "P", "Q", "Q"],
-  ["P", "P", "P", "P", "P", "Q"],
-  ["P", "P", "P", "P", "P", "P"],
-  ["P", "P", "P", "P", "P", "P"],
-  ["P", "P", "P", "P", "P", "P"],
+  ["Q", "Q", "S", "T", "R", "T"],
+  ["Q", "Q", "Q", "T", "T", "T"],
+  ["Q", "Q", "Q", "Q", "T", "Q"],
+  ["Q", "Q", "Q", "Q", "Q", "Q"],
+  ["Q", "Q", "Q", "Q", "Q", "Q"],
+  ["Q", "Q", "Q", "Q", "Q", "Q"],
+  ["Q", "K", "Q", "K", "K", "K"],
+  ["K", "K", "K", "Q", "K", "K"],
+  ["K", "K", "K", "K", "K", "K"],
+  ["K", "K", "K", "K", "K", "K"],
+  ["K", "K", "K", "K", "K", "K"],
+  ["K", "K", "K", "K", "K", "K"],
 ];
 const ROUNDS = EXAMPLE.length;
 
@@ -214,6 +225,7 @@ function screensList() {
     { id: "values", label: "Letter values" },
   ];
   for (let r = 0; r < ROUNDS; r++) {
+    if (r === NEW_ROUND) s.push({ id: "newletter", label: "New letter" });
     s.push({ id: "choose", round: r, label: `Round ${r + 1}: choose` });
     s.push({ id: "result", round: r, label: `Round ${r + 1}: result` });
   }
@@ -274,6 +286,15 @@ function history(upto, highlight) {
   return h;
 }
 
+function valuesTable(r) {
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>Letter</th><th class="r">Red Team gets<br><span class="thsub">split among 4 players</span></th><th class="b">Blue Team gets<br><span class="thsub">split among 2 players</span></th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
+    <tbody>
+      ${payingAt(r).map(ch => `<tr${r >= NEW_ROUND && ch === NEW ? ' class="new"' : ""}><td class="letter">${ch}${r >= NEW_ROUND && ch === NEW ? ' <span class="newtag">new</span>' : ""}</td><td class="r">${teamPts(ch, "r")} points</td><td class="b">${teamPts(ch, "b")} points</td>${THEORY ? `<td class="researcher theory">${THEORY[ch]}</td>` : ""}</tr>`).join("")}
+      <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td>${THEORY ? '<td class="researcher theory z">none (0 for all)</td>' : ""}</tr>
+    </tbody></table></div>`;
+}
+
 function myTotal(upto) {
   let s = 0;
   for (let r = 0; r <= upto; r++) {
@@ -298,7 +319,7 @@ function render() {
         <li>After each round, you will see whether all 6 players matched, the letter each player chose, the points earned that round, and your total points.</li>
       </ol>
       <p class="rules-h">The letters you can choose:</p>
-      <div class="chips">${ORDER.map(ch => `<span class="chip">${ch}</span>`).join("")}</div>`;
+      <div class="chips">${orderAt(0).map(ch => `<span class="chip">${ch}</span>`).join("")}</div>`;
   } else if (s.id === "team") {
     html = `<h1>Your Team</h1>
       <div class="badge ${team}"><span>You are on the</span><span class="big">${T} Team</span></div>`;
@@ -310,12 +331,12 @@ function render() {
     html = `<h1>What Each Letter Is Worth</h1>
       <p class="lead">Each letter stands for a <b>different way of dividing points</b> between the Red Team and the Blue Team. If all six players pick the same letter, each team gets the points that letter says.</p>
       <p class="lead">Each team's points are <b>split equally among its players</b>: the Red Team's points are shared by its 4 players, and the Blue Team's points by its 2 players.</p>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Letter</th><th class="r">Red Team gets<br><span class="thsub">split among 4 players</span></th><th class="b">Blue Team gets<br><span class="thsub">split among 2 players</span></th>${THEORY ? '<th class="researcher">Theory (researcher only)</th>' : ""}</tr></thead>
-        <tbody>
-          ${PAYING.map(ch => `<tr><td class="letter">${ch}</td><td class="r">${teamPts(ch, "r")} points</td><td class="b">${teamPts(ch, "b")} points</td>${THEORY ? `<td class="researcher theory">${THEORY[ch]}</td>` : ""}</tr>`).join("")}
-          <tr><td class="letter z">${ZERO.join(" ")}</td><td class="z">0 points</td><td class="z">0 points</td>${THEORY ? '<td class="researcher theory z">none (0 for all)</td>' : ""}</tr>
-        </tbody></table></div>
+      ${valuesTable(0)}
+      <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
+  } else if (s.id === "newletter") {
+    html = `<h1>A New Letter</h1>
+      <p class="lead">From this round on, there is a <b>new letter, ${NEW}</b>, which divides points in a new way. All the other letters stay the same.</p>
+      ${valuesTable(NEW_ROUND)}
       <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
   } else if (s.id === "choose") {
     const r = s.round;
@@ -324,7 +345,7 @@ function render() {
       You are <b class="${team}">Player ${youIdx() + 1}, ${T} Team</b>.</p>
       ${players()}
       ${r > 0 ? history(r - 1, -1) : ""}
-      <div class="letters" id="letters">${ORDER.map(ch => tile(ch, { button: true, selected: picks[r] === ch })).join("")}</div>
+      <div class="letters" id="letters">${orderAt(r).map(ch => tile(ch, { button: true, selected: picks[r] === ch })).join("")}</div>
       <p class="note">${picks[r] ? `You picked ${picks[r]}. Press Next to submit.` : "Click a letter to choose it."}</p>`;
   } else if (s.id === "result") {
     const r = s.round;
