@@ -99,6 +99,12 @@ td.z { color: var(--gray); }
 .outcome { font-size: 13px; color: var(--sub); line-height: 1.35; }
 .outcome .ok { color: var(--win); font-weight: 600; }
 .note { font-size: 12px; color: var(--gray); text-align: center; }
+.quiz { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 560px; }
+.quiz fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px 12px; margin: 0; }
+.quiz fieldset.wrong { border-color: var(--red); }
+.quiz legend { font-weight: 600; padding: 0 4px; }
+.quiz label { display: block; padding: 4px 0; cursor: pointer; }
+.quiz .why { color: var(--red); font-size: 13px; margin: 6px 0 0; }
 .nav { display: flex; gap: 10px; justify-content: center; }
 .nav button { border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; padding: 8px 18px; font: inherit; cursor: pointer; }
 .nav button.ghost { background: var(--card); color: var(--ink); }
@@ -221,6 +227,9 @@ const _q = new URLSearchParams(location.search).get("team");
 let team = _q === "blue" || _q === "b" ? "b" : _q === "red" || _q === "r" ? "r" : (Math.random() < 4/6 ? "r" : "b");
 let screen = 0;
 let picks = Array(ROUNDS).fill(null);
+// Comprehension check (same three questions as the earlier Name Game study, plus two about letter values).
+// Participants must answer all correctly to start; first-attempt answers are kept in quizFirst.
+let quizAns = {}, quizChecked = false, quizFirst = null;
 
 const youIdx = () => (team === "r" ? 0 : 4);
 
@@ -230,6 +239,7 @@ function screensList() {
     { id: "team", label: "Team" },
     { id: "players", label: "Players" },
     { id: "values", label: "Letter values" },
+    { id: "quiz", label: "Check questions" },
   ];
   for (let r = 0; r < ROUNDS; r++) {
     if (r === NEW_ROUND) s.push({ id: "newletter", label: "New letter" });
@@ -304,6 +314,31 @@ function valuesTable(r) {
     </tbody></table></div>`;
 }
 
+const uniq = a => a.filter((x, i) => a.indexOf(x) === i);
+function quizQs() {
+  const other = team === "r" ? "b" : "r";
+  const [L, L2] = payingAt(0);
+  const num = (a) => uniq(a).slice(0, 4).sort((x, y) => x - y).map(String);
+  return [
+    { id: "q1", q: "Players earn points when:", a: "All players choose the same letter",
+      opts: ["Most players choose the same letter", "All players choose the same letter", "At least one other player chooses the same letter as you", "Any player chooses a letter that is worth points"],
+      why: "Points are paid only if all 6 players choose the same letter." },
+    { id: "q2", q: "After each round, you see:", a: "All players' choices",
+      opts: ["Only your own choice", "Only whether everyone matched", "All players' choices", "Nothing until the end of the game"],
+      why: "After each round you see the letter every player chose." },
+    { id: "q3", q: "In the game, there are:", a: "6 players who each choose one letter",
+      opts: ["6 players who each choose one letter", "6 players, and each team chooses one letter together", "2 players who each choose one letter", "4 players who each choose one letter"],
+      why: "There are 6 players (4 Red, 2 Blue), and each one chooses a letter." },
+    { id: "q4", q: `If all 6 players choose ${L}, how many points do <b>you</b> get?`, a: String(pts(L, team)),
+      opts: num([pts(L, team), pts(L, other), 0, pts(L, team) * NTEAM[team], pts(L, team) + pts(L, other)]),
+      why: `Under ${L}, each ${TEAMNAME[team]} player gets ${pts(L, team)} points.` },
+    { id: "q5", q: `If 5 players choose ${L} and 1 player chooses ${L2}, how many points do <b>you</b> get?`, a: "0",
+      opts: num([0, pts(L, team), pts(L2, team), pts(L, team) + pts(L2, team)]),
+      why: "If even one player chooses differently, everyone gets 0 points." },
+  ];
+}
+const quizOK = () => quizQs().every(x => quizAns[x.id] === x.a);
+
 function myTotal(upto) {
   let s = 0;
   for (let r = 0; r <= upto; r++) {
@@ -346,6 +381,16 @@ function render() {
       <p class="lead">From this round on, there is a <b>new letter, ${NEW}</b>, which divides points in a new way. All the other letters stay the same.</p>
       ${valuesTable(NEW_ROUND)}
       <p class="lead">You are on the <b class="${team}">${T} Team</b>.</p>`;
+  } else if (s.id === "quiz") {
+    html = `<h1>Check Your Understanding</h1>
+      <p class="lead">Please answer these questions before the game starts. You need to answer all of them correctly to continue.</p>
+      <div class="quiz">${quizQs().map((x, n) => {
+        const wrong = quizChecked && quizAns[x.id] !== x.a;
+        return `<fieldset class="${wrong ? "wrong" : ""}"><legend>${n + 1}. ${x.q}</legend>
+          ${x.opts.map(o => `<label><input type="radio" name="${x.id}" value="${o}"${quizAns[x.id] === o ? " checked" : ""}> ${o}${/^\d+$/.test(o) ? " points" : ""}</label>`).join("")}
+          ${wrong ? `<p class="why">${quizAns[x.id] ? "Not quite. " : "Please answer. "}${x.why}</p>` : ""}</fieldset>`;
+      }).join("")}</div>
+      ${document.body.classList.contains("pview") ? "" : `<p class="note researcher">Correct: ${quizQs().map(x => x.a).join(" · ")}. First attempt: ${quizFirst ? JSON.stringify(quizFirst) : "not yet"}</p>`}`;
   } else if (s.id === "choose") {
     const r = s.round;
     html = `<h1>Round ${r + 1} of ${ROUNDS}</h1>
@@ -369,6 +414,7 @@ function render() {
   }
   card.innerHTML = html;
 
+  document.querySelectorAll(".quiz input").forEach(inp => inp.addEventListener("change", () => { quizAns[inp.name] = inp.value; }));
   document.querySelectorAll("#letters .lt").forEach(b => b.addEventListener("click", () => {
     picks[s.round] = b.dataset.ch; render();
   }));
@@ -378,7 +424,7 @@ function render() {
   document.getElementById("back").disabled = screen === 0;
   const pview = document.body.classList.contains("pview");
   document.getElementById("next").disabled = screen === SCREENS.length - 1 || (pview && s.id === "choose" && !picks[s.round]);
-  document.getElementById("next").textContent = pview && s.id === "choose" ? "Submit" : "Next";
+  document.getElementById("next").textContent = pview && s.id === "choose" ? "Submit" : s.id === "quiz" && !quizOK() ? "Check answers" : "Next";
 }
 
 const _oi = document.getElementById("orderinfo");
@@ -386,7 +432,7 @@ if (_oi) _oi.textContent = ORDER.join(" ") + " (seed " + ORDER_SEED + ")";
 
 function setPreview(on) {
   document.body.classList.toggle("pview", on);
-  screen = 0; picks = Array(ROUNDS).fill(null);
+  screen = 0; picks = Array(ROUNDS).fill(null); quizAns = {}; quizChecked = false; quizFirst = null;
   render(); window.scrollTo(0, 0);
 }
 document.getElementById("pv").onclick = () => setPreview(true);
@@ -401,7 +447,13 @@ function setTeam(t) {
 document.getElementById("teamR").onclick = () => setTeam("r");
 document.getElementById("teamB").onclick = () => setTeam("b");
 document.getElementById("back").onclick = () => { if (screen > 0) { screen--; render(); } };
-document.getElementById("next").onclick = () => { if (screen < SCREENS.length - 1) { screen++; render(); } };
+document.getElementById("next").onclick = () => {
+  if (SCREENS[screen].id === "quiz" && document.body.classList.contains("pview")) {
+    if (!quizFirst) quizFirst = Object.assign({}, quizAns);
+    if (!quizOK()) { quizChecked = true; render(); return; }
+  }
+  if (screen < SCREENS.length - 1) { screen++; render(); }
+};
 render();
 </script>
 </body>
